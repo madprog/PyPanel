@@ -1,9 +1,10 @@
 import fileinput, os, sys
 from distutils.core import Extension, setup
 from distutils import sysconfig
+import setuptools
 
 # Full paths to imlib2-config and freetype-config, adjust as needed -
-configs = ["/usr/bin/freetype-config", "/usr/bin/imlib2-config"]
+configs = ["freetype-config", "imlib2-config"]
 
 # Adjust or add any additional include directories here -
 idirs   = ["/usr/X11R6/include"]
@@ -15,10 +16,10 @@ ldirs   = []
 cargs   = ["-Wall"]
 
 # Full path to libImlib2 shared library
-imlib2  = "/usr/lib/libImlib2.so.1"
+imlib2s = ["/usr/lib/libImlib2.so.1", "/usr/local/lib/libImlib2.so.1"]
 
 #------------------------------------------------------------------------------
-# The rest of this script should not need to be modified! 
+# The rest of this script should not need to be modified!
 #------------------------------------------------------------------------------
 libs  = [] # libraries (listed without -l)
 largs = [] # extra link arguments
@@ -33,26 +34,26 @@ except:
     print "\nPyPanel requires the Python X library -"
     print "http://sourceforge.net/projects/python-xlib/"
     sys.exit()
-   
+
 # Parse the build options
-for config in configs:
+def handle_config(config):
     package = os.path.split(config)[1]
-    
+
     if os.path.isfile(config):
-        for cflag in os.popen("%s --cflags" % config).read().strip().split(): 
+        for cflag in os.popen("%s --cflags" % config).read().strip().split():
             flag = cflag[:2]
-            opt  = cflag[2:]    
-            
+            opt  = cflag[2:]
+
             if flag == "-I" and opt not in idirs:
                 idirs.append(opt)
             else:
                 if cflag not in cargs:
-                    cargs.append(cflag)    
-                
+                    cargs.append(cflag)
+
         for lib in os.popen("%s --libs" % config).read().strip().split():
             flag = lib[:2]
             opt  = lib[2:]
-            
+
             if flag == "-L" and opt not in ldirs:
                 ldirs.append(opt)
             elif flag == "-l":
@@ -61,21 +62,19 @@ for config in configs:
             else:
                 if lib not in largs:
                     largs.append(lib)
-                
+
         if package == "freetype-config":
             defs.append(("HAVE_XFT", 1))
             if "Xft" not in libs:
                 libs.append("Xft")
-                
-        if package == "imlib2-config":
-            # Add the workaround for Imlib2 version 1.2.x and up -
-            # Python dlopens libImlib2 with RTLD_LOCAL by default.  To avoid
-            # undefined symbols, dlopen it first with the RTLD_GLOBAL flag.
-            version = os.popen("%s --version" % config).read().strip()
-            if float(version[:3]) >= 1.2:
-                defs.append(("IMLIB2_FIX", 1))
-            
+
+        return True
     else:
+        return False
+
+bin_paths = os.getenv("PATH").split(':')
+for config in configs:
+    if not True in [handle_config(os.path.join(p, config)) for p in bin_paths]:
         if package == "imlib2-config":
             print "\nPyPanel requires the Imlib2 library -"
             print "http://www.enlightenment.org/pages/imlib2.html"
@@ -87,26 +86,18 @@ if len(sys.argv) > 1 and sys.argv[1] != "sdist":
         if fileinput.isfirstline():
             print "#!%s -OO" % sys.executable
         else:
-            print line,  
-            
-    if ("IMLIB2_FIX", 1) in defs:
-        for line in fileinput.input(["ppmodule.c"], inplace=1):
-            if "handle = dlopen" in line:
-                print '    handle = dlopen("%s", RTLD_NOW|RTLD_GLOBAL);' % imlib2
-            else:
-                print line,   
-                
-                   
+            print line,
+
 # Distutils config
-module = Extension("ppmodule",
+module = setuptools.extension.Extension("ppmodule",
                    sources            = ["ppmodule.c"],
                    include_dirs       = idirs,
                    library_dirs       = ldirs,
-                   libraries          = libs,  
+                   libraries          = libs,
                    extra_compile_args = cargs,
                    extra_link_args    = largs,
-                   define_macros      = defs,                    
-                  )  
+                   define_macros      = defs,
+                  )
 
 setup(name             = "PyPanel",
       author           = "Jon Gelo",
