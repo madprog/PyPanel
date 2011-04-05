@@ -1,4 +1,4 @@
-#!/usr/bin/python -OO
+#!/usr/local/bin/python -OO
 """
 PyPanel v2.4 - Lightweight panel/taskbar for X11 window managers
 Copyright (c) 2003-2005 Jon Gelo (ziljian@users.sourceforge.net)
@@ -26,7 +26,7 @@ class Obj(object):
     def __init__(self, **kwargs):
     #---------------------------- 
         self.__dict__.update(kwargs)
-        
+
 #----------------------------------------------------------------------------
 class PyPanel(object):
 #----------------------------------------------------------------------------
@@ -43,28 +43,37 @@ class PyPanel(object):
         self.hidden  = 0                         # Panel hidden/minimized
         self.focus   = 0                         # Currently focused window
         self.rpm     = None                      # Root pixmap ID
-                
+
         global P_HEIGHT, P_WIDTH, P_LOCATION
-        
+
         # Misc. initializations
         if SHOWLINES or SHOWBORDER:
             self.lgc = self.root.create_gc(foreground=self.getColor(LINE_COLOR))
         if not P_WIDTH:
             P_WIDTH = self.screen.width_in_pixels - P_START
         if SHOWBORDER:
-            P_HEIGHT += 2 
-        if P_LOCATION:
-            P_LOCATION = self.screen.height_in_pixels - P_HEIGHT
-        else:
-            P_LOCATION = 0
-        
+            P_HEIGHT += 2
+
+        self.location = P_LOCATION
+        if not P_LOCATION: # top
+            self.location = 0
+            self.x, self.y, self.width, self.height = P_START, 0, P_WIDTH or self.screen.width_in_pixels, P_HEIGHT
+        elif P_LOCATION == 1: # bottom
+            self.x, self.y, self.width, self.height = P_START, self.screen.height_in_pixels - P_HEIGHT, P_WIDTH or self.screen.width_in_pixels, P_HEIGHT
+        elif P_LOCATION == 2: # left
+            self.x, self.y, self.width, self.height = 0, P_START, P_WIDTH, P_HEIGHT or self.screen.height_in_pixels
+        elif P_LOCATION == 3: # right
+            self.x, self.y, self.width, self.height = self.screen.height_in_pixels - P_WIDTH, P_START, P_WIDTH, P_HEIGHT or self.screen.height_in_pixels
+
+        print (self.x, self.y, self.width, self.height)
+
         # Setup the panel's window
-        self.window = self.screen.root.create_window(P_START, P_LOCATION,
-            P_WIDTH, P_HEIGHT, 0, self.screen.root_depth, window_class=X.InputOutput,
+        self.window = self.screen.root.create_window(self.x, self.y, self.width, self.height,
+            0, self.screen.root_depth, window_class=X.InputOutput,
             visual=X.CopyFromParent, colormap=X.CopyFromParent, 
             event_mask=(X.ExposureMask|X.ButtonPressMask|X.ButtonReleaseMask|X.EnterWindowMask))
         ppinit(self.window.id, FONT)        
-        
+
         # Init the panel sections
         if DESKTOP:
             self.panel["sections"].append(DESKTOP)
@@ -81,7 +90,7 @@ class PyPanel(object):
             self.panel["sections"].append(LAUNCHER)
             self.panel[LAUNCHER] = Obj(id="launcher", tasks={}, order=[], first=0, last=0)
             self.createLauncher()
-        
+
         self.panel["sections"].append(TASKS)
         self.panel[TASKS] = Obj(id="tasks", tasks={}, order=[], first=0, last=0)      
         self.panel["sections"].sort()
@@ -96,15 +105,15 @@ class PyPanel(object):
         self.window.map()
         self.display.flush()
         self.loop(self.display, self.root, self.window, self.panel)
-                
+
     #------------------------------------
     def clearPanel(self, x1, y1, x2, y2):
     #------------------------------------
         """ Clear panel at the given coordinates """ 
         ppclear(self.window.id, int(x1), y1, int(x2), y2)
         if SHOWBORDER:
-            self.window.rectangle(self.lgc, 0, 0, P_WIDTH-1, P_HEIGHT-1)
-        
+            self.window.rectangle(self.lgc, 0, 0, self.width-1, self.height-1)
+
     #------------------------
     def createLauncher(self):
     #------------------------
@@ -117,7 +126,7 @@ class PyPanel(object):
             tasks[app] = Obj(x1=0, x2=0, app=app+" &", icon=iobj)
             self.panel[LAUNCHER].tasks = tasks
             self.panel[LAUNCHER].order = order         
-        
+
     #------------------------------
     def createTray(self, dsp, scr):
     #------------------------------
@@ -125,50 +134,71 @@ class PyPanel(object):
         self._OPCODE = dsp.intern_atom("_NET_SYSTEM_TRAY_OPCODE")
         manager      = dsp.intern_atom("MANAGER")
         selection    = dsp.intern_atom("_NET_SYSTEM_TRAY_S%d" % dsp.get_default_screen())
-          
+
         # Selection owner window          
         self.selowin = scr.root.create_window(-1, -1, 1, 1, 0, self.screen.root_depth)
         self.selowin.set_selection_owner(selection, X.CurrentTime)
         self.sendEvent(self.root, manager,[X.CurrentTime, selection,
             self.selowin.id], (X.StructureNotifyMask))
-    
+
     #---------------------------------
     def drawText(self, obj, x, width):
     #---------------------------------
         """ Draw the given objects name at x """
         if SHADOWS:
-            ppfont(self.window.id, obj.shadow, x+1, P_HEIGHT+2, width, obj.name) 
-        ppfont(self.window.id, obj.color, x, P_HEIGHT, width, obj.name)
-        
+            ppfont(self.window.id, obj.shadow, x+1, self.height+2, width, obj.name) 
+        ppfont(self.window.id, obj.color, x, self.height, width, obj.name)
+
     #----------------------------------
     def setStruts(self, win, hidden=0):
     #----------------------------------
         """ Set the panel struts according to the state (hidden/visible) """
-        if P_LOCATION == 0:
-            # top
+        if self.location == 0: # top
+            left = left_start = left_end = 0
+            right = right_start = right_end = 0
             if not hidden:
-                top = P_HEIGHT
+                top = self.height
             else:
                 top = HIDDEN_SIZE
-                    
-            top_start = P_START
-            top_end   = P_START + P_WIDTH
+            top_start = self.x
+            top_end   = self.x + self.width
             bottom = bottom_start = bottom_end = 0
-        else:
-            # bottom
+        elif self.location == 1: # bottom
+            left = left_start = left_end = 0
+            right = right_start = right_end = 0
             top = top_start = top_end = 0
             if not hidden:
-                bottom = P_HEIGHT
+                bottom = self.height
             else:
                 bottom = HIDDEN_SIZE
-                    
-            bottom_start = P_START
-            bottom_end   = P_START + P_WIDTH
-                
-        win.change_property(self._STRUT, Xatom.CARDINAL, 32, [0, 0, top, bottom])
-        win.change_property(self._STRUTP, Xatom.CARDINAL, 32, [0, 0, top, bottom,
-            0, 0, 0, 0, top_start, top_end, bottom_start, bottom_end])
-            
+            bottom_start = self.x
+            bottom_end   = self.x + self.width
+        elif self.location == 2: # left
+            if not hidden:
+                left = self.width
+            else:
+                left = HIDDEN_SIZE
+            left_start = self.y
+            left_end = self.y + self.height
+            right = right_start = right_end = 0
+            top = top_start = top_end = 0
+            bottom = bottom_start = bottom_end = 0
+        elif self.location == 3: # right
+            left = left_start = left_end = 0
+            if not hidden:
+                right = self.width
+            else:
+                right = HIDDEN_SIZE
+            right_start = self.y
+            right_end = self.y + self.height
+            top = top_start = top_end = 0
+            bottom = bottom_start = bottom_end = 0
+
+        win.change_property(self._STRUT, Xatom.CARDINAL, 32, [left, right, top, bottom])
+        win.change_property(self._STRUTP, Xatom.CARDINAL, 32, [left, right, top, bottom,
+            left_start, left_end, right_start, right_end, top_start, top_end, bottom_start, bottom_end])
+
+        print win.list_properties()
     #----------------------------
     def setProps(self, dsp, win):
     #----------------------------
@@ -195,22 +225,22 @@ class PyPanel(object):
         self._STRUT           = dsp.intern_atom("_NET_WM_STRUT")
         self._STRUTP          = dsp.intern_atom("_NET_WM_STRUT_PARTIAL")
         self._WMSTATE         = dsp.intern_atom("WM_STATE")
-        
+
         win.set_wm_name("PyPanel")
         win.set_wm_class("pypanel","PyPanel") 
         win.set_wm_hints(flags=(Xutil.InputHint|Xutil.StateHint),
             input=0, initial_state=1)
         win.set_wm_normal_hints(flags=(
             Xutil.PPosition|Xutil.PMaxSize|Xutil.PMinSize),
-            min_width=P_WIDTH, min_height=P_HEIGHT,
-            max_width=P_WIDTH, max_height=P_HEIGHT)
+            min_width=self.width, min_height=self.height,
+            max_width=self.width, max_height=self.height)
         win.change_property(dsp.intern_atom("_WIN_STATE"),Xatom.CARDINAL,32,[1]) 
         win.change_property(dsp.intern_atom("_MOTIF_WM_HINTS"),
             dsp.intern_atom("_MOTIF_WM_HINTS"), 32, [0x2, 0x0, 0x0, 0x0, 0x0])
         win.change_property(self._DESKTOP, Xatom.CARDINAL, 32, [0xffffffffL])
         win.change_property(dsp.intern_atom("_NET_WM_WINDOW_TYPE"),
             Xatom.ATOM, 32, [dsp.intern_atom("_NET_WM_WINDOW_TYPE_DOCK")])
-              
+
     #-----------------------------------------
     def setState(self, task, panel, win=None):
     #-----------------------------------------
@@ -219,7 +249,7 @@ class PyPanel(object):
             1 - panel update needed
         """
         task.state   = []
-                        
+
         try:
             task.state = task.obj.get_full_property(self._STATE, Xatom.ATOM).value
         except:
@@ -231,7 +261,7 @@ class PyPanel(object):
         except:
             if self.taskDelete(task.id, panel):
                 return 1
-                      
+
         # set color based on state
         if task.id == self.focus:
             task.color = self.getColor(FOCUSED_COLOR)
@@ -245,21 +275,21 @@ class PyPanel(object):
         else:
             task.color = self.getColor(TASK_COLOR)
             task.shadow = self.getColor(TASK_SHADOW_COLOR)
-            
+
         if SHOWMINIMIZED:
             if (self._HIDDEN not in task.state and task.visible) or\
                (self._HIDDEN in task.state and not task.visible):
                 return 1
-                
+
         if win and task.visible:
             x = task.x1+P_SPACER
             if APPICONS:
                 x += I_WIDTH+P_SPACER
-            self.clearPanel(x, 0, task.x2-x, P_HEIGHT)
+            self.clearPanel(x, 0, task.x2-x, self.height)
             self.drawText(task, x, task.x2-x-P_SPACER)
-        
+
         return 0
-    
+
     #----------------------------
     def setName(self, win, task):
     #----------------------------
@@ -271,18 +301,18 @@ class PyPanel(object):
                 x = task.x1 + P_SPACER                 
                 if APPICONS:
                     x += I_WIDTH+P_SPACER
-                self.clearPanel(x, 0, task.x2-x, P_HEIGHT)
+                self.clearPanel(x, 0, task.x2-x, self.height)
                 self.drawText(task, x, task.x2-x-P_SPACER)
-                
+
     #-----------------------
     def setIcon(self, task):
     #-----------------------
         """ Create an icon object for the given task """                     
         if not APPICONS:
             return
-            
+
         icon = Obj(path="", data="", width=0, height=0, pixmap=0L, mask=0L)
-            
+
         for tc in task.tclass:
             if tc in ICON_LIST:
                 icon.path = ICON_LIST[tc]
@@ -304,7 +334,7 @@ class PyPanel(object):
                 icon.mask   = hints.icon_mask.id
                 icon.width  = geom.width
                 icon.height = geom.height
-                
+
                 if icon.mask > sys.maxint:
                     icon.mask = 0
                 if icon.pixmap > sys.maxint:
@@ -312,53 +342,53 @@ class PyPanel(object):
         except:
             # default icon
             icon.path = ICON_LIST["default"] or "%s/pypanel/ppicon.png" % sysconfig.get_python_lib()
-                   
+
         task.icon = icon 
-            
+
     #--------------------------------------
     def getIcon(self, task, x, launcher=0):
     #--------------------------------------
         """ Get the icon from the given task and draw it at x """
         if not launcher and not APPICONS: 
             return 0
-            
+
         if launcher:
-            y = (P_HEIGHT-APPL_I_HEIGHT)/2
+            y = (self.height-APPL_I_HEIGHT)/2
             w = APPL_I_WIDTH
             h = APPL_I_HEIGHT
             name = task.app
         else:
-            y = (P_HEIGHT-I_HEIGHT)/2
+            y = (self.height-I_HEIGHT)/2
             w = I_WIDTH
             h = I_HEIGHT
             name = task.tclass
-        
+
         icon = task.icon           
         rc   = ppicon(self.window.id, icon.pixmap, icon.mask, x, y, icon.width,
                       icon.height, w, h, icon.data, icon.path)  
         if not rc:
-            self.clearPanel(x, 0, w, P_HEIGHT)
+            self.clearPanel(x, 0, w, self.height)
             sys.stderr.write("Failed to get icon for '%s'\n%s\n\n" % (name, icon.path))
-        
+
         return 1
-    
+
     #-------------------------
     def getDesktopNames(self):
     #-------------------------
         """ Populate the desktop obj with the names of each desktop """
         if not DESKTOP:
             return
-        
+
         if SHADOWS:
             shadow = self.getColor(DESKTOP_SHADOW_COLOR)
         else:
             shadow = None
-        
+
         color         = self.getColor(DESKTOP_COLOR)    
         desktop       = self.panel[DESKTOP]
         desktop.names = []
         desktop.total = self.root.get_full_property(self._DESKTOP_COUNT, 0).value[0]
-                                      
+
         if DESKTOP_NAMES:
             names = DESKTOP_NAMES
         else:
@@ -369,22 +399,22 @@ class PyPanel(object):
                 names = []
                 for x in range(desktop.total):
                     names.append(str(x)) 
-                    
+
         if len(names) < desktop.total:
             for x in range(len(names), desktop.total):
                 names.append(str(x))  
-                  
+
         for name in names:
-            obj = Obj(name=name, width=ppfontsize(name), color=color, shadow=shadow)
+            obj = Obj(name=name, size=ppfontsize(name), color=color, shadow=shadow)
             desktop.names.append(obj)        
-            
+
     #-------------------------------
     def getDesktop(self, task=None):
     #-------------------------------
         """ Return the desktop number of the given task obj """
         if task is None:
             return self.root.get_full_property(self._CURRENT_DESKTOP, Xatom.CARDINAL).value[0]  
-           
+
         try:
             return task.get_full_property(self._DESKTOP, Xatom.CARDINAL).value[0]
         except:
@@ -392,7 +422,7 @@ class PyPanel(object):
                 return task.get_full_property(self._BLACKBOX, 0).value[2]
             except:
                 return None
-            
+
     #-------------------------
     def getColor(self, color):
     #-------------------------
@@ -404,14 +434,14 @@ class PyPanel(object):
             g = int("0x"+color[4:6],0)*257
             b = int("0x"+color[6:8],0)*257
             c = self.screen.default_colormap.alloc_color(r, g, b)
-        
+
             if not c:
                 sys.stderr.write("Error allocating color: %s\n" % color)
                 return self.screen.white_pixel
             else:
                 self.colors[color] = c.pixel
                 return c.pixel
-            
+
     #-----------------------
     def getName(self, task):
     #-----------------------
@@ -421,7 +451,7 @@ class PyPanel(object):
             return name.value
         except:
             return ""
-        
+
     #------------------------------------------------
     def sendEvent(self, win, ctype, data, mask=None):
     #------------------------------------------------
@@ -432,7 +462,7 @@ class PyPanel(object):
         if not mask:
             mask = (X.SubstructureRedirectMask|X.SubstructureNotifyMask)
         self.root.send_event(ev, event_mask=mask)
-                                             
+
     #----------------------------
     def changeDesktop(self, num):
     #----------------------------
@@ -443,27 +473,27 @@ class PyPanel(object):
             cur = self.panel[DESKTOP].total - 1
         elif cur == self.panel[DESKTOP].total:
             cur = 0
-            
+
         self.sendEvent(self.root, self._CURRENT_DESKTOP, [cur])
-            
+
     #---------------------
     def showDesktop(self):
     #---------------------
         """ Toggle between hiding and unhiding ALL applications """
         showing = self.root.get_full_property(self._SHOWING_DESKTOP, 0)
-        
+
         if hasattr(showing, "value"):
             if showing.value[0] == 0:
                 self.sendEvent(self.root, self._SHOWING_DESKTOP, [1])
             else:
                 self.sendEvent(self.root, self._SHOWING_DESKTOP, [0])
-        
+
     #----------------------
     def toggleHidden(self):
     #----------------------
         """ Hide/Unhide the Panel """
         if self.hidden:
-            self.window.configure(y=P_LOCATION, height=P_HEIGHT)
+            self.window.configure(x=self.x, y=self.y, width=self.width, height=self.height)
             self.setStruts(self.window)
             if ABOVE:
                 self.sendEvent(self.window, self._STATE, [0, self._BELOW])
@@ -472,16 +502,20 @@ class PyPanel(object):
                 self.sendEvent(self.window, self._STATE, [1, self._BELOW])
                 self.sendEvent(self.window, self._STATE, [0, self._ABOVE])
         else:
-            if P_LOCATION == 0:
+            if self.location == 0: # top
                 y = 0;
-            else:
+            elif self.location == 1: # bottom
                 y = self.screen.height_in_pixels - HIDDEN_SIZE
+            if self.location == 2: # left
+                x = 0;
+            elif self.location == 3: # right
+                x = self.screen.width_in_pixels - HIDDEN_SIZE
 
-            self.window.configure(y=y, height=HIDDEN_SIZE)
+            self.window.configure(x=x, y=y, width=HIDDEN_SIZE, height=HIDDEN_SIZE)
             self.setStruts(self.window, hidden=1)
-            
+
         self.hidden = not self.hidden
-            
+
     #----------------------------------------
     def toggleMinimize(self, task, traise=1):
     #----------------------------------------
@@ -493,13 +527,13 @@ class PyPanel(object):
             self.sendEvent(task.obj, self._CHANGE_STATE, [Xutil.IconicState])
         if traise:
             self.taskRaise(task, 0)
-                
+
     #---------------------------
     def toggleShade(self, task):
     #---------------------------
         """ Shade/Unshade a task """
         self.sendEvent(task.obj, self._STATE, [2, self._SHADED])
-        
+
     #--------------------------------
     def taskDelete(self, tid, panel):
     #--------------------------------
@@ -510,7 +544,7 @@ class PyPanel(object):
                 panel[section].order.remove(tid)
                 return 1
         return 0
-            
+
     #-------------------------
     def taskFocus(self, task):
     #-------------------------
@@ -519,7 +553,7 @@ class PyPanel(object):
             self.toggleMinimize(task)
         else:
             self.taskRaise(task, 1)
-            
+
     #----------------------------------
     def taskRaise(self, task, focus=0):
     #----------------------------------
@@ -528,7 +562,7 @@ class PyPanel(object):
             task.obj.configure(stack_mode=X.Above)
             if focus:
                 task.obj.set_input_focus(X.RevertToNone, X.CurrentTime)
-    
+
     #----------------------------------
     def taskLower(self, task, focus=0):
     #----------------------------------
@@ -537,7 +571,7 @@ class PyPanel(object):
             task.obj.configure(stack_mode=X.Below)
             if focus:
                 task.obj.set_input_focus(X.RevertToNone, X.CurrentTime)
-                
+
     #---------------------------------------
     def buttonRelease(self, root, panel, e):
     #---------------------------------------
@@ -585,26 +619,25 @@ class PyPanel(object):
                             else:
                                 taskButtonEvent(self, e.detail, t)
                             return
-                               
+
     #-------------------------------------
     def updateBackground(self, root, win):
     #-------------------------------------
         """ Check and update the panel background if necessary """  
         rpm = root.get_full_property(self._RPM, Xatom.PIXMAP)
-        
+
         if hasattr(rpm, "value"):
             rpm = rpm.value[0]
         else:
             rpm = root.id
-            
+
         if self.rpm != rpm:
             self.rpm = rpm
             r = int("0x"+BG_COLOR[2:4],0)
             g = int("0x"+BG_COLOR[4:6],0)
             b = int("0x"+BG_COLOR[6:8],0)
-            ppshade(win.id, rpm, P_START, P_LOCATION, P_WIDTH, P_HEIGHT,
-                r, g, b, SHADE)
-                                         
+            ppshade(win.id, rpm, self.x, self.y, self.width, self.height, r, g, b, SHADE)
+
     #---------------------------------------
     def updatePanel(self, root, win, panel):
     #---------------------------------------
@@ -612,21 +645,22 @@ class PyPanel(object):
         tasks    = panel[TASKS].tasks     # all tasks
         visible  = []                     # visible tasks
         curr_x   = 0
-        space    = P_WIDTH
+        space    = self.location in (0,1) and self.width or self.height
         cdt      = self.getDesktop()
         clock    = None
         desktop  = None
         tray     = None
         launcher = None
-                
+
         if CLOCK:
             clock = panel[CLOCK]
             clock.name  = time.strftime(CLOCK_FORMAT, time.localtime())
-            clock.width = ppfontsize(clock.name) + 2
+            clock.width = ppfontsize(clock.name)[0] + 2
+            print ppfontsize(clock.name)
             space -= clock.width + P_SPACER*2
         if DESKTOP:
             desktop = panel[DESKTOP]
-            space -= desktop.names[cdt].width + P_SPACER*2
+            space -= desktop.names[cdt].size[0] + P_SPACER*2
         if LAUNCHER and panel[LAUNCHER].tasks:
             launcher = panel[LAUNCHER]
             space -= len(launcher.order)*APPL_I_WIDTH + 2
@@ -654,11 +688,11 @@ class PyPanel(object):
                         t.visible = 0
                     if t.visible:
                         visible.append(task)
-        
+
         # Clear the panel and add the objects
         self.updateBackground(root, win)
         self.clearPanel(0, 0, 0, 0)
-            
+
         for section in panel["sections"]:
             if panel[section].id == "tasks" and TASKS:
                 if not visible:
@@ -679,9 +713,9 @@ class PyPanel(object):
                         curr_x += limit + P_SPACER
                         t.x2 = curr_x
                         if v < len(visible) and SHOWLINES:
-                            win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
+                            win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
                 if SHOWLINES and not panel[section].last:
-                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
+                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
             elif panel[section].id == "clock":
                 clock.x1 = curr_x
                 curr_x += P_SPACER
@@ -689,29 +723,29 @@ class PyPanel(object):
                 curr_x += clock.width + P_SPACER
                 clock.x2 = curr_x
                 if SHOWLINES and not clock.last:
-                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
+                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
             elif panel[section].id == "desktop":
                 desk = panel[section].names[cdt]
                 desktop.x1 = curr_x
                 curr_x += P_SPACER
                 self.drawText(desk, curr_x, 0)
-                curr_x += desk.width + P_SPACER
+                curr_x += desk.size[0] + P_SPACER
                 desktop.x2 = curr_x
                 if SHOWLINES and not desktop.last:
-                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
+                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
             elif panel[section].id == "tray" and tray:
                 curr_x += 2
                 for tid in tray.order:
                     t = tray.tasks[tid]
                     t.x = curr_x
-                    t.y = (P_HEIGHT-t.height)/2
+                    t.y = (self.height-t.height)/2
                     t.obj.configure(onerror=self.error, x=curr_x, y=t.y, 
                          width=t.width, height=t.height)
                     t.obj.map(onerror=self.error)
                     curr_x += t.width
                 curr_x += 1
                 if SHOWLINES and not tray.last:
-                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
+                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
             elif panel[section].id == "launcher" and launcher:
                 curr_x += 2
                 for app in launcher.order:
@@ -722,8 +756,8 @@ class PyPanel(object):
                     a.x2 = curr_x
                 curr_x += 1    
                 if SHOWLINES and not launcher.last:
-                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, P_HEIGHT)])
-                    
+                    win.poly_segment(self.lgc, [(curr_x, 0, curr_x, self.height)])
+
     #------------------------------------------------------
     def updateTasks(self, dsp, root, win, panel, update=0):
     #------------------------------------------------------
@@ -731,13 +765,13 @@ class PyPanel(object):
         cdt   = self.getDesktop()
         tasks = root.get_full_property(self._CLIENT_LIST, Xatom.WINDOW).value
         count = 0
-                 
+
         for task in [t for t in tasks if t not in panel[TASKS].tasks]: 
             obj  = dsp.create_resource_object("window", task)
             odt  = self.getDesktop(obj)
             name = self.getName(obj)
             hide = 0
-            
+
             try:
                 if self._SKIP_TASKBAR in obj.get_full_property(self._STATE, Xatom.ATOM).value:
                     hide = 1
@@ -745,7 +779,7 @@ class PyPanel(object):
                 pass
             try:
                 tclass = obj.get_full_property(Xatom.WM_CLASS, Xatom.STRING)
-                      
+
                 if tclass is None:
                     tclass = ["",""]
                 else:
@@ -755,7 +789,7 @@ class PyPanel(object):
                             hide = 1
             except:
                 continue 
-                
+
             if name == "PyPanel":
                 hide = 1
                 count += 1
@@ -765,22 +799,22 @@ class PyPanel(object):
             if not hide:
                 obj.change_attributes(event_mask=(
                     X.PropertyChangeMask|X.FocusChangeMask|X.StructureNotifyMask))
-            
+
             t = Obj(id=task, obj=obj, name=name, tclass=tclass, x1=-1, x2=-1,
                 desk=odt, visible=0, hidden=hide)
-                
+
             panel[TASKS].order.append(task)
             panel[TASKS].tasks[task] = t
             self.setIcon(t)
-                                          
+
             if self.setState(t, panel):
                 update = 1
             if not update and odt == cdt:
                 update = 1
-        
+
         if update:
             self.updatePanel(root, win, panel)
-                              
+
     #-------------------------------------
     def loop(self, dsp, root, win, panel):
     #-------------------------------------
@@ -789,13 +823,13 @@ class PyPanel(object):
             clock = panel[CLOCK]
         if TRAY:
             tray = panel[TRAY]
-            
+
         tasks = panel[TASKS]  
         focus = dsp.get_input_focus().focus
-        
+
         if hasattr(focus, "id"):
             self.focus = focus.id 
-                   
+
         while 1:     
             while dsp.pending_events():
                 e = dsp.next_event()
@@ -829,7 +863,7 @@ class PyPanel(object):
                             self.setIcon(t)
                             if t.visible:
                                 x = t.x1 + P_SPACER
-                                self.clearPanel(x, 0, t.x2-x, P_HEIGHT)
+                                self.clearPanel(x, 0, t.x2-x, self.height)
                                 if self.getIcon(t, x):
                                     x += I_WIDTH+P_SPACER
                                 self.drawText(t, x, t.x2-x-P_SPACER)
@@ -861,7 +895,7 @@ class PyPanel(object):
                             if self.setState(tasks.tasks[wid], panel, win):
                                 self.updatePanel(root, win, panel)    
                 elif e.type == X.Expose and e.count == 0:
-                    if e.width == P_WIDTH:
+                    if e.width == self.width:
                         win.change_property(self._DESKTOP, Xatom.CARDINAL, 32, [0xffffffffL])
                         self.sendEvent(win, self._STATE, [1, self._STICKY])
                         self.sendEvent(win, self._STATE, [1, self._SKIP_PAGER])
@@ -873,7 +907,7 @@ class PyPanel(object):
                         self.updateTasks(dsp, root, win, panel, 1)                      
                     else:
                         self.updatePanel(root, win, panel)
-                        
+
             rs, ws, es = select.select([dsp.display.socket], [], [], CLOCK_DELAY) 
             if not rs:
                 if AUTOHIDE and not self.hidden:
@@ -882,9 +916,9 @@ class PyPanel(object):
                 now = time.strftime(CLOCK_FORMAT, time.localtime())
                 if clock.name != now:
                     clock.name = now
-                    self.clearPanel(clock.x1+1, 0, clock.x2-(clock.x1+1), P_HEIGHT)
+                    self.clearPanel(clock.x1+1, 0, clock.x2-(clock.x1+1), self.height)
                     self.drawText(clock, clock.x1+P_SPACER, 0)
-                                              
+
 #----------------------------------------------------------------------------
 #                                  Main
 #----------------------------------------------------------------------------
@@ -939,14 +973,14 @@ if __name__ == "__main__":
         sys.stderr.write("\nFailed to open ~/.pypanelrc -\n\n")
         sys.stderr.write(str(e)+"\n\n")
         sys.exit()
-        
+
     # Version check
     main   = 2.4
     config = globals().get("VERSION", None)
-    
+
     # Set locale to user's default
     locale.setlocale(locale.LC_ALL, "")
-    
+
     if not config or config != main:
         sys.stderr.write("\npypanelrc version : %s\n" % config)
         sys.stderr.write("pypanel   version : %s\n" % main)

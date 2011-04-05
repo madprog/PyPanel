@@ -134,9 +134,9 @@ static PyObject * _ppfontsize(PyObject *self, PyObject *args) {
     
 #ifdef HAVE_XFT
     XftTextExtentsUtf8(dsp, xf, text, len, &ginfo); 
-    return Py_BuildValue("i", ginfo.width);
+    return Py_BuildValue("(ii)", ginfo.width, ginfo.height);
 #else
-    return Py_BuildValue("i", (int)XTextWidth(xf, text, len));
+    return Py_BuildValue("(ii)", (int)XTextWidth(xf, text, len), (int)(xf->max_bounds.ascent + xf->max_bounds.descent));
 #endif
 }
 
@@ -255,23 +255,6 @@ static PyObject * _ppinit(PyObject *self, PyObject *args) {
     imlib_context_set_colormap(DefaultColormap(dsp, scr));
     imlib_context_set_dither(1);
     
-#ifdef IMLIB2_FIX
-    /* Kludge to get around a problem where dlopen fails to open several
-       Imlib2 (versions 1.2 and greater) image loaders, namely png and jpeg,
-       because of undefined symbols.  This problem is somehow related to
-       calling the Imlib2 code from this Python extension module.  As a
-       workaround, I go ahead and open the shared libs here with the RTLD_LAZY
-       flag, avoiding the undefined symbols.  This stops the Imlib2 code from
-       attempting to open them later with the RTLD_NOW flag which fails.  If
-       you're reading this and know of a proper solution, please let me know ..
-    */
-    handle = dlopen("/usr/lib/libImlib2.so.1", RTLD_NOW|RTLD_GLOBAL);
-
-    if (!handle) {
-        printf("Imlib2 dlopen failed: %s\n", dlerror());
-    }
-#endif
-    
 #ifdef HAVE_XFT
     if (font[0] == '-')
         xf = XftFontOpenXlfd(dsp, scr, font);
@@ -297,7 +280,7 @@ static PyMethodDef PPMethods[] = {
 /*-------------------------------*/
     {"ppclear",    _ppclear,    METH_VARARGS, "Clear Area"},
     {"ppfont",     _ppfont,     METH_VARARGS, "Font Rendering"},
-    {"ppfontsize", _ppfontsize, METH_VARARGS, "Return Size of Given Font"},
+    {"ppfontsize", _ppfontsize, METH_VARARGS, "Return Size of Given Text in Given Font"},
     {"ppicon",     _ppicon,     METH_VARARGS, "Icon Rendering"},
     {"ppshade",    _ppshade,    METH_VARARGS, "Background Rendering"},
     {"ppinit",     _ppinit,     METH_VARARGS, "Initialization"},
