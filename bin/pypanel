@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+# vim: ts=4 sw=4 et list
+
+"""
+PyPanel v2.4 - Lightweight panel/taskbar for X11 window managers
+Copyright (c) 2003-2005 Jon Gelo (ziljian@users.sourceforge.net)
+Copyright (c) 2011 Paul Morelle (paul.morelle@gmail.com)
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+"""
+
+#----------------------------------------------------------------------------
+#                                  Main
+#----------------------------------------------------------------------------
+from distutils import sysconfig
+from ppmodule import ppinit, ppshade, ppicon, ppfont, ppfontsize, ppclear
+from Xlib import X, display, error, Xatom, Xutil
+import Xlib.protocol.event
+import locale, os, pwd, select, sys, time
+
+import pypanel
+
+# New default config options which may not exist in ~/.pypanelrc if upgrading
+# v2.2
+HIDDEN_SIZE   = 2
+SHOWBORDER    = 0
+SHOWMINIMIZED = 0
+# v2.3
+ABOVE         = 1
+LAUNCHER      = 0
+LAUNCH_LIST   = []
+APPL_I_HEIGHT = 24
+APPL_I_WIDTH  = 24
+ICON_LIST     = {"default":""}
+# v2.4
+SHADOWS                = 0
+TASK_SHADOW_COLOR      = "0xffffff"
+FOCUSED_SHADOW_COLOR   = "0xffffff"
+SHADED_SHADOW_COLOR    = "0xffffff"
+MINIMIZED_SHADOW_COLOR = "0xffffff"
+DESKTOP_SHADOW_COLOR   = "0xffffff"
+CLOCK_SHADOW_COLOR     = "0xffffff"
+
+#-------------------------
+if __name__ == "__main__":
+#-------------------------
+    try:
+        src  = None
+        dst  = None
+        home = pwd.getpwuid(os.getuid())[5]
+        if os.access("/etc/pypanelrc", os.F_OK|os.R_OK):
+            src = "/etc/pypanelrc"
+            execfile(src)
+        if not os.access("%s/.pypanelrc" % home, os.F_OK|os.R_OK):
+            # Create ~/.pypanelrc from /etc/pypanelrc if it exists else
+            # create it from /<pythonlib>/site-packages/pypanel/pypanelrc
+            import shutil
+            if not src:
+                src = "%s/pypanel/pypanelrc" % sysconfig.get_python_lib()
+            dst = "%s/.pypanelrc" % home
+            shutil.copyfile(src, dst)
+        execfile("%s/.pypanelrc" % home)
+        del src, dst, home
+    except StandardError, e:
+        sys.stderr.write("\nFailed to open ~/.pypanelrc -\n\n")
+        sys.stderr.write(str(e)+"\n\n")
+        sys.exit()
+
+    # Version check
+    main   = 2.4
+    config = globals().get("VERSION", None)
+
+    # Set locale to user's default
+    locale.setlocale(locale.LC_ALL, "")
+
+    if not config or config != main:
+        sys.stderr.write("\npypanelrc version : %s\n" % config)
+        sys.stderr.write("pypanel   version : %s\n" % main)
+        sys.stderr.write("\nA current pypanelrc example can be found here -\n")
+        sys.stderr.write("%s/pypanel/pypanelrc\n\n" % sysconfig.get_python_lib())
+    del main, config
+
+    pypanel.run(display.Display(), P_LOCATION, P_THICKNESS, P_LENGTH, P_SHIFT, P_SPACER)

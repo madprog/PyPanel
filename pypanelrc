@@ -31,11 +31,25 @@ CLOCK_SHADOW_COLOR     = "0xffffff"
 #------------------------------------------------------------------------------
 # Panel Spacing and Location Options: Measured in pixels
 #------------------------------------------------------------------------------
-P_LOCATION      = 1             # Panel placement: 0 = top, 1 = bottom
-P_WIDTH         = 0             # Panel width: 0 = Use full screen width
-P_START         = 0             # Starting X coordinate of the panel
-P_SPACER        = 6             # Spacing between panel objects
-P_HEIGHT        = 24            # Panel height
+# +-------------------------------------------+
+# |  ^                  3                     |
+# |  | SHIFT                                  |
+# |  v                                        |
+# +---+ ^                                     |
+# |   | |                                    2|
+# |1  | | LENGTH                              |
+# |   | |                                     |
+# +---+ v                                     |
+# |<-->                 LENGTH                |
+# |THICKNESS         <--------->              |
+# |      SHIFT       +---------+ ^            |
+# |<---------------->|    0    | v THICKNESS  |
+# +-------------------------------------------+
+P_LOCATION      = 1   # Panel placement: 0 = bottom, 1 = left, 2 = right, 3 = top
+P_THICKNESS     = 192 # Distance from the border of the screen
+P_LENGTH        = 0   # Panel length (0 for full length)
+P_SHIFT         = -1  # Distance from the other border of the screen, -1 for centering
+P_SPACER        = 6   # Spacing between panel objects
 
 #------------------------------------------------------------------------------
 # Icon Size Options: Measured in pixels
