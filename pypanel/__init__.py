@@ -24,7 +24,7 @@ import controllers
 import views
 
 #--------------------------------------------------------------------------------
-def run(display, side=controllers.BOTTOM, thickness=24, length=0, shift=0, spacer=6):
+def run(display, side=controllers.BOTTOM, thickness=24, length=0, shift=0, spacer=6, hidden_size=2):
 #--------------------------------------------------------------------------------
     """ Initialize and display the panel """
-    controllers.CONTROLLERS[side](display, thickness, length, shift, spacer).run()
+    controllers.CONTROLLERS[side](display, thickness, length, shift, spacer, hidden_size).run()

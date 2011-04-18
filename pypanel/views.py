@@ -37,6 +37,8 @@ class BaseView:
         self.width   = width
         self.height  = height
 
+        self._init_x_atoms()
+
         self.screen  = display.screen()
         self.root    = self.screen.root
         #self.error   = Xlib.error.CatchError()
@@ -57,9 +59,8 @@ class BaseView:
         self.display.flush()
 
     #-------------------------------------
-    def _set_props(self):
+    def _init_x_atoms(self):
     #-------------------------------------
-        """ Set necessary X atoms and panel window properties """
         self._ABOVE                   = self.display.intern_atom("_NET_WM_STATE_ABOVE")
         self._BELOW                   = self.display.intern_atom("_NET_WM_STATE_BELOW")
         self._BLACKBOX                = self.display.intern_atom("_BLACKBOX_ATTRIBUTES")
@@ -87,9 +88,13 @@ class BaseView:
         self._NET_WM_WINDOW_TYPE      = self.display.intern_atom("_NET_WM_WINDOW_TYPE")
         self._NET_WM_WINDOW_TYPE_DOCK = self.display.intern_atom("_NET_WM_WINDOW_TYPE_DOCK")
 
+    #-------------------------------------
+    def _set_props(self):
+    #-------------------------------------
+        """ Set necessary X atoms and panel window properties """
         self.window.set_wm_name("PyPanel")
 
-        self.window.set_wm_class("pypanel","PyPanel")
+        self.window.set_wm_class("pypanel", "PyPanel")
 
         self.window.set_wm_hints(flags=(
                 Xlib.Xutil.InputHint |
@@ -109,6 +114,13 @@ class BaseView:
 
         self.window.change_property(self._DESKTOP, Xlib.Xatom.CARDINAL, 32, [0xffffffffL])
         self.window.change_property(self._NET_WM_WINDOW_TYPE, Xlib.Xatom.ATOM, 32, [self._NET_WM_WINDOW_TYPE_DOCK])
+
+    #------------------------------------------------------------------------------------------------------------------------------------------
+    def set_struts(self, left_start, left, left_end, right_start, right, right_end, top_start, top, top_end, bottom_start, bottom, bottom_end):
+    #------------------------------------------------------------------------------------------------------------------------------------------
+        """ Set the panel struts according to the state (hidden/visible) """
+        self.window.change_property(self._STRUT, Xlib.Xatom.CARDINAL, 32, [left, right, top, bottom])
+        self.window.change_property(self._STRUTP, Xlib.Xatom.CARDINAL, 32, [left, right, top, bottom, left_start, left_end, right_start, right_end, top_start, top_end, bottom_start, bottom_end])
 
 #----------------------------------------------------------------------------
 class DefaultView(BaseView):

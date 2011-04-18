@@ -43,6 +43,7 @@ class BaseController:
         self.display = display
 
         self.view = views.DefaultView(display, self.x, self.y, self.width, self.height)
+        self.view.set_struts(*self.get_struts())
 
     #-------------
     def run(self):
@@ -59,9 +60,10 @@ class BaseController:
 class BottomController(BaseController):
 #----------------------------------------------------------------------------
     #------------------------------------------------------
-    def __init__(self, display, thickness, length, shift, spacer):
+    def __init__(self, display, thickness, length, shift, spacer, hidden_size):
     #------------------------------------------------------
         self.spacer = spacer
+        self.hidden_size = hidden_size
 
         if length == 0:
             length = display.screen().width_in_pixels
@@ -77,13 +79,22 @@ class BottomController(BaseController):
         print 'BottomController', self.x, self.y, self.width, self.height
         BaseController.__init__(self, display)
 
+    #--------------------
+    def get_struts(self):
+    #--------------------
+        return (0, 0, 0,                                  # left_start, left, left_end
+                0, 0, 0,                                  # right_start, right, right_end
+                0, 0, 0,                                  # top_start, top, top_end
+                self.x, self.height, self.x + self.width) # bottom_start, bottom, bottom_end
+
 #----------------------------------------------------------------------------
 class LeftController(BaseController):
 #----------------------------------------------------------------------------
     #------------------------------------------------------
-    def __init__(self, display, thickness, length, shift, spacer):
+    def __init__(self, display, thickness, length, shift, spacer, hidden_size):
     #------------------------------------------------------
         self.spacer = spacer
+        self.hidden_size = hidden_size
 
         if length == 0:
             length = display.screen().height_in_pixels
@@ -99,13 +110,22 @@ class LeftController(BaseController):
         print 'LeftController', self.x, self.y, self.width, self.height
         BaseController.__init__(self, display)
 
+    #--------------------
+    def get_struts(self):
+    #--------------------
+        return (self.y, self.width, self.y + self.height, # left_start, left, left_end
+                0, 0, 0,                                  # right_start, right, right_end
+                0, 0, 0,                                  # top_start, top, top_end
+                0, 0, 0)                                  # bottom_start, bottom, bottom_end
+
 #----------------------------------------------------------------------------
 class RightController(BaseController):
 #----------------------------------------------------------------------------
     #------------------------------------------------------
-    def __init__(self, display, thickness, length, shift, spacer):
+    def __init__(self, display, thickness, length, shift, spacer, hidden_size):
     #------------------------------------------------------
         self.spacer = spacer
+        self.hidden_size = hidden_size
 
         if length == 0:
             length = display.screen().height_in_pixels
@@ -121,13 +141,22 @@ class RightController(BaseController):
         print 'RightController', self.x, self.y, self.width, self.height
         BaseController.__init__(self, display)
 
+    #--------------------
+    def get_struts(self):
+    #--------------------
+        return (0, 0, 0,                                  # left_start, left, left_end
+                self.x, self.width, self.y + self.height, # right_start, right, right_end
+                0, 0, 0,                                  # top_start, top, top_end
+                0, 0, 0)                                  # bottom_start, bottom, bottom_end
+
 #----------------------------------------------------------------------------
 class TopController(BaseController):
 #----------------------------------------------------------------------------
     #------------------------------------------------------
-    def __init__(self, display, thickness, length, shift, spacer):
+    def __init__(self, display, thickness, length, shift, spacer, hidden_size):
     #------------------------------------------------------
         self.spacer = spacer
+        self.hidden_size = hidden_size
 
         if length == 0:
             length = display.screen().width_in_pixels
@@ -142,6 +171,14 @@ class TopController(BaseController):
 
         print 'TopController', self.x, self.y, self.width, self.height
         BaseController.__init__(self, display)
+
+    #--------------------
+    def get_struts(self):
+    #--------------------
+        return (0, 0, 0,                                  # left_start, left, left_end
+                0, 0, 0,                                  # right_start, right, right_end
+                self.x, self.height, self.x + self.width, # top_start, top, top_end
+                0, 0, 0)                                  # bottom_start, bottom, bottom_end
 
 BOTTOM = 0
 LEFT   = 1

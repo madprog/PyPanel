@@ -92,4 +92,4 @@ if __name__ == "__main__":
         sys.stderr.write("%s/pypanel/pypanelrc\n\n" % sysconfig.get_python_lib())
     del main, config
 
-    pypanel.run(display.Display(), P_LOCATION, P_THICKNESS, P_LENGTH, P_SHIFT, P_SPACER)
+    pypanel.run(display.Display(), P_LOCATION, P_THICKNESS, P_LENGTH, P_SHIFT, P_SPACER, HIDDEN_SIZE)
